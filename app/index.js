@@ -3,6 +3,12 @@ import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { AppRegistry, Button, Dimensions, Image, StyleSheet, Text, View } from 'react-native';
 import Camera from 'react-native-camera';
+import axios from 'axios';
+import RNFS from 'react-native-fs'
+
+
+const cloudVisionKey = '';
+const cloudPath = 'https://vision.googleapis.com/v1/images:annotate?key=' + cloudVisionKey;
 
 export default class CameraApp extends Component {
   constructor(props) {
@@ -10,6 +16,7 @@ export default class CameraApp extends Component {
     this.state = {
       cameraFeed: true,
       imagePath: null,
+      base64: null,
     };
   }
 
@@ -22,9 +29,10 @@ export default class CameraApp extends Component {
           }}
           style={styles.preview}
           aspect={Camera.constants.Aspect.fill}
+          captureQuality={Camera.constants.CaptureQuality["480p"]}
           onFocusChanged={this.onFocusChanged.bind(this)}
           onZoomChanged={this.onZoomChanged.bind(this)}
-          captureTarget={Camera.constants.CaptureTarget.disk}>
+          captureTarget={Camera.constants.CaptureTarget.memory}>
           <View style={styles.capture}>
             <Button
               onPress={this.takePicture.bind(this)}
@@ -47,7 +55,7 @@ export default class CameraApp extends Component {
   render() {
     return (
       <View style = {styles.container}>
-        {(this.state.imagePath == null ) ? this.cameraHome(): this.showPicture()}
+        {(this.state.base64 == null ) ? this.cameraHome(): this.showPicture()}
       </View>
     )
   }
@@ -55,8 +63,8 @@ export default class CameraApp extends Component {
   takePicture() {
     this.camera.capture()
       .then((data) => {
-          console.log(data)
-          this.setState({imagePath: data.path})
+          this.setState({imagePath: 'data:image/png;base64,' + data.data})
+          this.setState({base64: data.data})
       })
       .catch(err => console.error(err));
   }
@@ -74,30 +82,44 @@ export default class CameraApp extends Component {
             title="X"
           />
         </View>
+        <View style={styles.classify}>
+          <Button
+            onPress={this.uploadPicture.bind(this)}
+            title="Get classification"
+          />
+        </View>
       </View>
     )
   }
 
   uploadPicture() {
-    var data = new FormData();
-    data.append('my_photo', {
-      uri: this.state.imagePath,
-      name: 'my_photo.jpg',
-      type: 'image/jpg',
-    })
-
-    fetch(path, {
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'multipart/form-data'
-      },
-      method: 'POST',
-      body: data
-    });
+    axios.post(cloudPath, {
+            "requests":[
+              {
+                "image":{
+                  "content": this.state.base64
+                },
+                "features":[
+                  {
+                    "type":"LABEL_DETECTION",
+                    "maxResults":1
+                  }
+                ]
+              }
+            ]
+          })
+      .then(response => {
+        const labels = response.data.responses[0].labelAnnotations;
+        console.log('Labels:');
+        labels.forEach(label => console.log(label));
+      })
+      .catch(function (error) {
+        console.log(error, "error");
+      });
   }
 
   closePicture() {
-    this.setState({imagePath: null})
+    this.setState({base64: null})
   }
 }
 
@@ -124,6 +146,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 10,
     margin: 10,
+  },
+  classify: {
+    position: 'absolute',
+    backgroundColor: '#fff',
+    padding: 10,
+    margin: 100,
   }
 });
 
