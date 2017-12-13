@@ -22,6 +22,8 @@ export default class CameraApp extends Component {
           }}
           style={styles.preview}
           aspect={Camera.constants.Aspect.fill}
+          onFocusChanged={this.onFocusChanged.bind(this)}
+          onZoomChanged={this.onZoomChanged.bind(this)}
           captureTarget={Camera.constants.CaptureTarget.disk}>
           <View style={styles.capture}>
             <Button
@@ -32,6 +34,14 @@ export default class CameraApp extends Component {
         </Camera>
       </View>
     )
+  }
+
+  onFocusChanged(event) {
+    console.log(event.nativeEvent.touchPoint);
+  }
+
+  onZoomChanged(event) {
+    console.log(event.nativeEvent.touchPoint);
   }
 
   render() {
@@ -55,44 +65,48 @@ export default class CameraApp extends Component {
     return (
       <View>
         <Image
-          source={{uri: this.state.imagepath}}
+          source={{uri: this.state.imagePath}}
           style={styles.preview}
           />
+        <View style={styles.exit}>
+          <Button
+            onPress={this.closePicture.bind(this)}
+            title="X"
+          />
+        </View>
       </View>
     )
   }
 
-  closePicture() {
-    this.setState({cameraFeed: true})
-  }
-}
+  uploadPicture() {
+    var data = new FormData();
+    data.append('my_photo', {
+      uri: this.state.imagePath,
+      name: 'my_photo.jpg',
+      type: 'image/jpg',
+    })
 
-export class DisplayPic extends Component {
-  render() {
-    return (
-      <View style={styles.staticPic}>
-        <View style={styles.exitPreview}>
-          <View style={styles.exit}>
-            <Button
-              onPress={this.closePicture.bind(this)}
-              title="X"
-            />
-          </View>
-        </View>
-      </View>
-    );
+    fetch(path, {
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'multipart/form-data'
+      },
+      method: 'POST',
+      body: data
+    });
+  }
+
+  closePicture() {
+    this.setState({imagePath: null})
   }
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-alignItems: 'center',
-justifyContent: 'center',
-backgroundColor: '#000',
+    alignItems: 'center',
   },
   preview: {
-    flex: 1,
     justifyContent: 'flex-end',
     alignItems: 'center',
     height: Dimensions.get('window').height,
@@ -105,16 +119,8 @@ backgroundColor: '#000',
     padding: 5,
     margin: 40,
   },
-  staticPic: {
-    flex: 1,
-  },
-  exitPreview: {
-    flex: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'flex-start'
-  },
   exit: {
-    flex: 0,
+    position: 'absolute',
     backgroundColor: '#fff',
     padding: 10,
     margin: 10,
